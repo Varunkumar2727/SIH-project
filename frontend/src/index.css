@@ -1608,3 +1608,482 @@ h1, h2, h3, h4, .font-heading {
     height: 300px;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   GEOCADASTRAL DASHBOARD
+   ========================================================= */
+
+.geo-dashboard {
+  position: relative;
+}
+
+.geo-dashboard::before {
+  content: "";
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  top: 5%;
+  left: -280px;
+  background: radial-gradient(
+    circle,
+    rgba(6, 182, 212, 0.08),
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+.geo-dashboard::after {
+  content: "";
+  position: fixed;
+  width: 650px;
+  height: 650px;
+  right: -300px;
+  bottom: -150px;
+  background: radial-gradient(
+    circle,
+    rgba(139, 92, 246, 0.08),
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   DASHBOARD LAYOUT POLISH
+   ========================================================= */
+
+.geo-dashboard-layout {
+  position: relative;
+  z-index: 1;
+}
+
+.geo-dashboard-layout > div:first-child {
+  position: relative;
+}
+
+.geo-dashboard-layout > div:last-child {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+}
+
+.geo-dashboard-layout > div:last-child::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(34, 211, 238, 0.5),
+    rgba(139, 92, 246, 0.5),
+    transparent
+  );
+  pointer-events: none;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   IMAGE UPLOAD PANEL
+   ========================================================= */
+
+.geo-dashboard .glass-panel {
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.geo-dashboard .glass-panel:hover {
+  border-color: rgba(96, 165, 250, 0.18);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.22),
+    0 0 30px rgba(34, 211, 238, 0.04);
+}
+
+.geo-dashboard input[type="file"] {
+  cursor: pointer;
+}
+
+.geo-dashboard button {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.geo-dashboard button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.geo-dashboard button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.geo-dashboard button:disabled {
+  cursor: not-allowed;
+}
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   GIS MAP WORKSPACE
+   ========================================================= */
+
+.geo-dashboard .leaflet-container {
+  border-radius: 16px;
+  overflow: hidden;
+  background: #070b14;
+}
+
+.geo-dashboard .leaflet-control-zoom {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.geo-dashboard .leaflet-control-zoom a {
+  background: rgba(10, 14, 26, 0.9) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.geo-dashboard .leaflet-control-zoom a:hover {
+  background: rgba(30, 41, 59, 0.95) !important;
+  color: #ffffff !important;
+}
+
+.geo-dashboard .leaflet-control-attribution {
+  background: rgba(5, 8, 16, 0.75) !important;
+  color: #64748b !important;
+  backdrop-filter: blur(8px);
+}
+
+.geo-dashboard .leaflet-control-attribution a {
+  color: #94a3b8 !important;
+}
+
+.geo-dashboard .leaflet-popup-content-wrapper,
+.geo-dashboard .leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.geo-dashboard .leaflet-bar {
+  border: none !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   RESPONSIVE DASHBOARD
+   ========================================================= */
+
+@media (max-width: 1000px) {
+  .geo-dashboard-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .geo-dashboard-layout > div:last-child {
+    min-height: 600px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .geo-dashboard {
+    padding: 16px 12px !important;
+  }
+
+  .geo-dashboard-layout {
+    gap: 16px !important;
+  }
+
+  .geo-dashboard-layout > div:last-child {
+    padding: 16px !important;
+    min-height: 500px !important;
+  }
+
+  .geo-dashboard .leaflet-container {
+    border-radius: 12px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   DASHBOARD HEADER POLISH
+   ========================================================= */
+
+.geo-dashboard > .glass-panel:first-child {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(96, 165, 250, 0.14);
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.geo-dashboard > .glass-panel:first-child::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(34, 211, 238, 0.45),
+    rgba(139, 92, 246, 0.45),
+    transparent
+  );
+  pointer-events: none;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   MAP VIEW TABS
+   ========================================================= */
+
+.geo-dashboard-layout button {
+  font-family: inherit;
+}
+
+.geo-dashboard-layout button svg {
+  flex-shrink: 0;
+}
+
+.geo-dashboard-layout button:hover:not(:disabled) {
+  border-color: rgba(96, 165, 250, 0.3) !important;
+}
+
+.geo-dashboard-layout button:disabled {
+  opacity: 0.45;
+}
+
+@media (max-width: 640px) {
+  .geo-dashboard-layout button {
+    font-size: 12px !important;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   CONTROL PANEL ORGANIZATION
+   ========================================================= */
+
+.geo-dashboard-layout > div:first-child {
+  gap: 16px;
+}
+
+.geo-dashboard-layout > div:first-child > * {
+  position: relative;
+}
+
+.geo-dashboard-layout > div:first-child > * + * {
+  margin-top: 2px;
+}
+
+.geo-dashboard-layout > div:first-child .glass-panel {
+  border-radius: 16px;
+}
+
+.geo-dashboard-layout > div:first-child .glass-panel:hover {
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geo-dashboard-layout > div:first-child .glass-panel {
+    transition: none;
+  }
+
+  .geo-dashboard-layout > div:first-child .glass-panel:hover {
+    transform: none;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   DASHBOARD VISUAL SEPARATORS
+   ========================================================= */
+
+.geo-dashboard-layout > div:first-child {
+  position: relative;
+}
+
+.geo-dashboard-layout > div:first-child::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -12px;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(148, 163, 184, 0.14),
+    transparent
+  );
+  pointer-events: none;
+}
+
+@media (max-width: 1000px) {
+  .geo-dashboard-layout > div:first-child::after {
+    display: none;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   MOBILE MAP CONTROLS
+   ========================================================= */
+
+@media (max-width: 640px) {
+  .geo-dashboard-layout > div:last-child > div:first-child {
+    align-items: stretch !important;
+  }
+
+  .geo-dashboard-layout > div:last-child > div:first-child > div:first-child {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .geo-dashboard-layout > div:last-child > div:first-child button {
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   AI PROCESSING ANIMATION
+   ========================================================= */
+
+@keyframes geo-pulse {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+.geo-dashboard button:disabled {
+  position: relative;
+}
+
+.geo-dashboard button:disabled svg {
+  animation: geo-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geo-dashboard button:disabled svg {
+    animation: none;
+  }
+}

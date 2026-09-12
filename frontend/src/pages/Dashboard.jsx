@@ -55,12 +55,29 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={{ maxWidth: '1480px', margin: '0 auto', padding: '24px 20px' }}>
+    <div
+  className="geo-dashboard"
+  style={{
+    maxWidth: '1480px',
+    margin: '0 auto',
+    padding: '24px 20px',
+    minHeight: '100vh',
+    position: 'relative'
+  }}
+>
       {/* Top Navigation Header */}
       <Header detectionMode={results?.detection_mode || 'Prototype Computer Vision'} />
 
       {/* Main Grid Layout */}
-      <div className="animate-fade-in-up" style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 390px) 1fr', gap: '24px' }}>
+      <div
+  className="geo-dashboard-layout animate-fade-in-up"
+  style={{
+    display: 'grid',
+    gridTemplateColumns: 'minmax(340px, 390px) 1fr',
+    gap: '24px',
+    alignItems: 'start'
+  }}
+>
         
         {/* LEFT CONTROL PANEL */}
         <div className="animate-fade-in-up stagger-1" style={{ display: 'flex', flexDirection: 'column' }}>
