@@ -9,10 +9,11 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from api.routes import router as api_router
+from api.v1.router import v1_router
 
 app = FastAPI(
     title="GeoCadastral AI API",
-    description="AI-Assisted Cadastral Mapping & Land Feature Segmentation API",
+    description="AI-Assisted Cadastral Mapping & Land Intelligence Enterprise Platform",
     version="1.0.0"
 )
 
@@ -30,6 +31,7 @@ os.makedirs(sample_images_dir, exist_ok=True)
 app.mount("/api/sample_images", StaticFiles(directory=sample_images_dir), name="sample_images")
 
 app.include_router(api_router)
+app.include_router(v1_router)
 
 
 @app.get("/")

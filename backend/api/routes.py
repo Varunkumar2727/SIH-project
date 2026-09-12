@@ -56,20 +56,32 @@ async def upload_image(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid or corrupted image file: {str(e)}")
 
-    is_georeferenced = False
-    crs_info = "Image is not georeferenced"
-    bounds = None
+    from services.geospatial import extract_geotiff_metadata
 
     if ext in [".tif", ".tiff"]:
-        try:
-            import rasterio
-            with rasterio.open(file_path) as src:
-                if src.crs is not None:
-                    is_georeferenced = True
-                    crs_info = str(src.crs)
-                    bounds = [src.bounds.left, src.bounds.bottom, src.bounds.right, src.bounds.top]
-        except Exception:
-            pass
+        geospatial_meta = extract_geotiff_metadata(file_path)
+        is_georeferenced = geospatial_meta.get("georeferenced", False)
+        crs_info = geospatial_meta.get("crs") if is_georeferenced else (geospatial_meta.get("reason") or "Image is not georeferenced")
+        bounds = geospatial_meta.get("bounds")
+        transform = geospatial_meta.get("transform")
+    else:
+        is_georeferenced = False
+        crs_info = "Image is not georeferenced"
+        bounds = None
+        transform = None
+        geospatial_meta = {
+            "georeferenced": False,
+            "crs": "Not available",
+            "epsg": None,
+            "coordinate_type": "pixel",
+            "units": "pixels",
+            "measurement": "Pixel / Manual Calibration",
+            "bounds": None,
+            "pixel_size": None,
+            "transform": None,
+            "width": width,
+            "height": height
+        }
 
     meta = {
         "image_id": image_id,
@@ -83,6 +95,8 @@ async def upload_image(file: UploadFile = File(...)):
         "is_georeferenced": is_georeferenced,
         "crs": crs_info,
         "bounds": bounds,
+        "transform": transform,
+        "geospatial": geospatial_meta,
         "upload_time": time.strftime("%Y-%m-%d %H:%M:%S")
     }
 
@@ -124,6 +138,10 @@ async def analyze_image_endpoint(image_id: str):
 
     detection_results["parcels"] = parcel_results["parcels"]
     detection_results["stats"]["proposed_parcels"] = len(parcel_results["parcels"])
+    detection_results["geospatial"] = meta.get("geospatial")
+    detection_results["is_georeferenced"] = meta.get("is_georeferenced", False)
+    detection_results["crs"] = meta.get("crs")
+    detection_results["transform"] = meta.get("transform")
 
     geojson_data = export_to_geojson(detection_results, meta)
     geojson_path = os.path.join(RESULTS_DIR, f"{image_id}.geojson")
@@ -174,14 +192,330 @@ async def get_results(image_id: str, measurement_mode: str = "pixels"):
     if "features" in data:
         for ftype, features_list in data["features"].items():
             for feature in features_list:
-                feature["formatted_area"] = formatter.format_area(feature.get("area_px", 0))
+                feature["formatted_area"] = formatter.format_area(
+                    feature.get("area_px", 0),
+                    polygon=feature.get("polygon")
+                )
     
     if "parcels" in data:
         for parcel in data["parcels"]:
-            parcel["formatted_area"] = formatter.format_area(parcel.get("area_px", 0))
+            parcel["formatted_area"] = formatter.format_area(
+                parcel.get("area_px", 0),
+                polygon=parcel.get("polygon")
+            )
 
     data["calibration"] = meta.get("calibration")
+    data["geospatial"] = meta.get("geospatial")
+    data["is_georeferenced"] = meta.get("is_georeferenced", False)
+    data["crs"] = meta.get("crs")
+    data["transform"] = meta.get("transform")
+    data["gcps"] = meta.get("gcps", [])
+    data["gcp_transformation"] = meta.get("gcp_transformation")
+    data["active_georeferencing"] = meta.get("active_georeferencing")
+
+    # Determine clearly identified georeferencing method
+    if meta.get("active_georeferencing") == "gcp" and meta.get("gcp_transformation"):
+        data["georeferencing_method"] = "GCP Affine Transformation"
+    elif meta.get("is_georeferenced"):
+        data["georeferencing_method"] = "GeoTIFF Native CRS/Transform"
+    elif meta.get("calibration"):
+        data["georeferencing_method"] = "Manual Calibration"
+    else:
+        data["georeferencing_method"] = "Pixel Mode"
+
     return data
+
+
+@router.get("/coordinates/{image_id}")
+async def get_coordinates(image_id: str, x: float, y: float):
+    """
+    Returns real-world coordinates for a given pixel (x=col, y=row).
+    Prioritizes active GCP transformation if applied, otherwise native GeoTIFF.
+    """
+    meta_path = os.path.join(UPLOAD_DIR, f"{image_id}_meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(status_code=404, detail=f"Image metadata for '{image_id}' not found.")
+
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
+
+    geospatial = meta.get("geospatial") or {}
+    gcp_trans = meta.get("gcp_transformation") or {}
+    is_gcp_active = (meta.get("active_georeferencing") == "gcp") and bool(gcp_trans.get("transform"))
+
+    if is_gcp_active:
+        transform = gcp_trans["transform"]
+        crs = gcp_trans["crs"]
+        is_georef = True
+        method = "gcp"
+    else:
+        is_georef = meta.get("is_georeferenced", False) or geospatial.get("georeferenced", False)
+        transform = meta.get("transform") or geospatial.get("transform")
+        crs = meta.get("crs") or geospatial.get("crs")
+        method = "geotiff" if is_georef else "none"
+
+    if not is_georef or not transform or not crs:
+        return {
+            "pixel": {"x": round(x, 2), "y": round(y, 2)},
+            "georeferenced": False,
+            "coordinates": "Not available"
+        }
+
+    try:
+        from services.geospatial import pixel_to_world, transform_coordinates
+        world_x, world_y = pixel_to_world(x, y, transform)
+        lon, lat = transform_coordinates(world_x, world_y, src_crs=crs, dst_crs="EPSG:4326")
+        is_proj = "4326" not in str(crs)
+        return {
+            "pixel": {"x": round(x, 2), "y": round(y, 2)},
+            "georeferenced": True,
+            "method": method,
+            "crs": crs,
+            "rmse": gcp_trans.get("rmse") if is_gcp_active else None,
+            "coordinate_type": "projected" if is_proj else "geographic",
+            "units": "metre" if is_proj else "degree",
+            "native": {
+                "x": round(world_x, 2),
+                "y": round(world_y, 2),
+                "label_x": "Easting" if is_proj else "Longitude",
+                "label_y": "Northing" if is_proj else "Latitude"
+            },
+            "wgs84": {
+                "lat": round(lat, 6),
+                "lon": round(lon, 6)
+            }
+        }
+    except Exception as e:
+        return {
+            "pixel": {"x": round(x, 2), "y": round(y, 2)},
+            "georeferenced": False,
+            "coordinates": "Not available",
+            "error": str(e)
+        }
+
+
+# =========================================================================
+# Ground Control Points (GCP) Endpoints
+# =========================================================================
+
+from pydantic import BaseModel, Field
+
+class GCPItemRequest(BaseModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
+    image_x: float
+    image_y: float
+    coordinate_type: str = "projected"
+    world_x: Optional[float] = None
+    world_y: Optional[float] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    elevation: Optional[float] = None
+    crs: str = "EPSG:32643"
+    description: Optional[str] = None
+    source: Optional[str] = "Field Survey"
+    accuracy: Optional[float] = None
+
+class GCPCalculateRequest(BaseModel):
+    target_crs: Optional[str] = None
+
+
+@router.get("/gcps/{image_id}")
+async def get_gcps_endpoint(image_id: str):
+    meta_path = os.path.join(UPLOAD_DIR, f"{image_id}_meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(status_code=404, detail=f"Image metadata for '{image_id}' not found.")
+
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
+
+    return {
+        "image_id": image_id,
+        "gcps": meta.get("gcps", []),
+        "transformation": meta.get("gcp_transformation"),
+        "active": meta.get("active_georeferencing") == "gcp"
+    }
+
+
+@router.post("/gcps/{image_id}")
+async def add_gcp_endpoint(image_id: str, req: GCPItemRequest):
+    meta_path = os.path.join(UPLOAD_DIR, f"{image_id}_meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(status_code=404, detail=f"Image metadata for '{image_id}' not found.")
+
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
+
+    from services.gcp import validate_gcp, normalize_gcp
+
+    gcp_dict = req.dict()
+    is_valid, err_msg = validate_gcp(gcp_dict)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=err_msg)
+
+    gcps = meta.get("gcps", [])
+    index = len(gcps) + 1
+    normalized = normalize_gcp(gcp_dict, index=index)
+
+    existing_idx = next((i for i, g in enumerate(gcps) if g["id"] == normalized["id"]), None)
+    if existing_idx is not None:
+        gcps[existing_idx] = normalized
+    else:
+        gcps.append(normalized)
+
+    meta["gcps"] = gcps
+
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    return {
+        "status": "success",
+        "gcp": normalized,
+        "total_gcps": len(gcps)
+    }
+
+
+@router.delete("/gcps/{image_id}/{gcp_id}")
+async def delete_gcp_endpoint(image_id: str, gcp_id: str):
+    meta_path = os.path.join(UPLOAD_DIR, f"{image_id}_meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(status_code=404, detail=f"Image metadata for '{image_id}' not found.")
+
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
+
+    gcps = meta.get("gcps", [])
+    new_gcps = [g for g in gcps if g["id"] != gcp_id]
+
+    if len(new_gcps) == len(gcps):
+        raise HTTPException(status_code=404, detail=f"GCP with ID '{gcp_id}' not found.")
+
+    meta["gcps"] = new_gcps
+
+    if len(new_gcps) < 3:
+        meta["gcp_transformation"] = None
+        if meta.get("active_georeferencing") == "gcp":
+            meta["active_georeferencing"] = None
+
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    return {
+        "status": "success",
+        "deleted_id": gcp_id,
+        "remaining_gcps": len(new_gcps)
+    }
+
+
+@router.post("/gcps/{image_id}/calculate")
+async def calculate_gcp_endpoint(image_id: str, req: Optional[GCPCalculateRequest] = None):
+    meta_path = os.path.join(UPLOAD_DIR, f"{image_id}_meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(status_code=404, detail=f"Image metadata for '{image_id}' not found.")
+
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
+
+    gcps = meta.get("gcps", [])
+    if len(gcps) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail=f"At least 3 Ground Control Points are required to calculate an affine transformation (currently {len(gcps)})."
+        )
+
+    from services.gcp import calculate_gcp_transformation
+
+    target_crs = req.target_crs if req and req.target_crs else meta.get("crs")
+    try:
+        res = calculate_gcp_transformation(
+            gcps=gcps,
+            target_crs=target_crs,
+            image_width=meta.get("width"),
+            image_height=meta.get("height")
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    meta["gcp_transformation"] = res
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    return res
+
+
+@router.post("/gcps/{image_id}/apply")
+async def apply_gcp_endpoint(image_id: str):
+    """
+    Activates the calculated GCP transformation as the primary georeferencing method.
+    Re-exports GeoJSON and updates results accordingly.
+    """
+    meta_path = os.path.join(UPLOAD_DIR, f"{image_id}_meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(status_code=404, detail=f"Image metadata for '{image_id}' not found.")
+
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
+
+    gcp_trans = meta.get("gcp_transformation")
+    if not gcp_trans or not gcp_trans.get("transform"):
+        raise HTTPException(status_code=400, detail="No calculated GCP transformation found. Please calculate transformation first.")
+
+    meta["active_georeferencing"] = "gcp"
+
+    # Re-export GeoJSON with active GCP transform if results exist
+    results_path = os.path.join(RESULTS_DIR, f"{image_id}_results.json")
+    if os.path.exists(results_path):
+        with open(results_path, "r") as f:
+            detection_results = json.load(f)
+        from services.geojson_export import export_to_geojson
+        geojson_data = export_to_geojson(detection_results, meta)
+        geojson_path = os.path.join(RESULTS_DIR, f"{image_id}.geojson")
+        with open(geojson_path, "w") as f:
+            json.dump(geojson_data, f, indent=2)
+
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    return {
+        "status": "success",
+        "active_georeferencing": "gcp",
+        "rmse": gcp_trans.get("rmse"),
+        "crs": gcp_trans.get("crs")
+    }
+
+
+@router.post("/gcps/{image_id}/reset")
+async def reset_gcp_endpoint(image_id: str):
+    """
+    Deactivates GCP georeferencing and restores native GeoTIFF or manual calibration.
+    """
+    meta_path = os.path.join(UPLOAD_DIR, f"{image_id}_meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(status_code=404, detail=f"Image metadata for '{image_id}' not found.")
+
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
+
+    meta["active_georeferencing"] = None
+
+    # Re-export GeoJSON without GCP
+    results_path = os.path.join(RESULTS_DIR, f"{image_id}_results.json")
+    if os.path.exists(results_path):
+        with open(results_path, "r") as f:
+            detection_results = json.load(f)
+        from services.geojson_export import export_to_geojson
+        geojson_data = export_to_geojson(detection_results, meta)
+        geojson_path = os.path.join(RESULTS_DIR, f"{image_id}.geojson")
+        with open(geojson_path, "w") as f:
+            json.dump(geojson_data, f, indent=2)
+
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    return {
+        "status": "success",
+        "active_georeferencing": None
+    }
 
 
 from pydantic import BaseModel

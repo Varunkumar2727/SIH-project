@@ -4,6 +4,7 @@ import ImageUpload from '../components/ImageUpload';
 import StatsCards from '../components/StatsCards';
 import LayerControl from '../components/LayerControl';
 import MeasurementControl from '../components/MeasurementControl';
+import GcpControl from '../components/GcpControl';
 import MapViewer from '../components/MapViewer';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import GeoJsonExport from '../components/GeoJsonExport';
@@ -21,6 +22,14 @@ export default function Dashboard() {
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationLine, setCalibrationLine] = useState([]);
 
+  // Ground Control Points (GCP) States
+  const [gcps, setGcps] = useState([]);
+  const [gcpTransformation, setGcpTransformation] = useState(null);
+  const [isAddingGcp, setIsAddingGcp] = useState(false);
+  const [pendingGcpPoint, setPendingGcpPoint] = useState(null);
+  const [activeGeoref, setActiveGeoref] = useState(null);
+  const [selectedGcpId, setSelectedGcpId] = useState(null);
+
   const [layers, setLayers] = useState({
     buildings: true,
     roads: true,
@@ -33,13 +42,27 @@ export default function Dashboard() {
   const handleUploadSuccess = (meta) => {
     setImageMeta(meta);
     setResults(null);
+    setGcps(meta?.gcps || []);
+    setGcpTransformation(meta?.gcp_transformation || null);
+    setActiveGeoref(meta?.active_georeferencing || (meta?.is_georeferenced ? 'geotiff' : null));
+    if (meta?.active_georeferencing === 'gcp' || meta?.is_georeferenced) {
+      setMeasurementMode('geographic');
+    } else {
+      setMeasurementMode('pixels');
+    }
   };
 
   const handleAnalysisComplete = (res, meta) => {
     setResults(res);
     setImageMeta(meta);
-    if (res.calibration) {
+    if (res?.calibration) {
       setCalibrationData(res.calibration);
+    }
+    setGcps(res?.gcps || meta?.gcps || []);
+    setGcpTransformation(res?.gcp_transformation || meta?.gcp_transformation || null);
+    setActiveGeoref(res?.active_georeferencing || meta?.active_georeferencing || (meta?.is_georeferenced ? 'geotiff' : null));
+    if (res?.active_georeferencing === 'gcp' || meta?.is_georeferenced || res?.is_georeferenced) {
+      setMeasurementMode('geographic');
     }
   };
 
@@ -74,7 +97,28 @@ export default function Dashboard() {
           <StatsCards
             stats={results?.stats}
             meta={imageMeta}
+            results={results}
           />
+
+          {imageMeta && (
+            <GcpControl
+              imageId={imageMeta?.image_id}
+              imageMeta={imageMeta}
+              gcps={gcps}
+              setGcps={setGcps}
+              gcpTransformation={gcpTransformation}
+              setGcpTransformation={setGcpTransformation}
+              isAddingGcp={isAddingGcp}
+              setIsAddingGcp={setIsAddingGcp}
+              pendingGcpPoint={pendingGcpPoint}
+              setPendingGcpPoint={setPendingGcpPoint}
+              activeGeoref={activeGeoref}
+              setActiveGeoref={setActiveGeoref}
+              selectedGcpId={selectedGcpId}
+              setSelectedGcpId={setSelectedGcpId}
+              onRefreshResults={fetchResults}
+            />
+          )}
 
           {results && (
             <MeasurementControl
@@ -190,12 +234,18 @@ export default function Dashboard() {
             {activeTab === 'map' ? (
               <MapViewer
                 rawImageUrl={imageMeta?.url}
+                imageMeta={imageMeta}
                 results={results}
                 layers={layers}
                 opacity={opacity}
                 isCalibrating={isCalibrating}
                 calibrationLine={calibrationLine}
                 setCalibrationLine={setCalibrationLine}
+                gcps={gcps}
+                selectedGcpId={selectedGcpId}
+                setSelectedGcpId={setSelectedGcpId}
+                isAddingGcp={isAddingGcp}
+                setPendingGcpPoint={setPendingGcpPoint}
               />
             ) : (
               <BeforeAfterSlider
