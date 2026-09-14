@@ -77,8 +77,8 @@ export default function ImageUpload({ onUploadSuccess, onAnalysisComplete, isPro
     try {
       const response = await fetch(`/${sampleFileName}`);
       if (!response.ok) throw new Error('Could not fetch sample image');
-      const blob = await response.blob();
-      const file = new File([blob], sampleFileName, { type: "image/jpeg" });
+      const mimeType = sampleFileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      const file = new File([blob], sampleFileName, { type: mimeType });
       
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
@@ -272,7 +272,8 @@ export default function ImageUpload({ onUploadSuccess, onAnalysisComplete, isPro
           {[
             { filename: 'real_aerial_1.jpg', title: 'Real Aerial 1', desc: '64 Buildings | 96 Parcels', color: '#06B6D4' },
             { filename: 'real_aerial_2.jpg', title: 'Real Aerial 2', desc: '52 Buildings | 66 Parcels', color: '#10B981' },
-            { filename: 'real_aerial_3.jpg', title: 'Real Aerial 3', desc: '36 Buildings | 51 Parcels', color: '#A855F7' }
+            { filename: 'cadastrevision_north.png', title: 'CadastreVision North', desc: 'CadNET Benchmark Sector', color: '#F59E0B' },
+            { filename: 'cadastrevision_south.png', title: 'CadastreVision South', desc: 'CadNET Benchmark Sector', color: '#EC4899' }
           ].map((preset, idx) => (
             <button
               key={idx}

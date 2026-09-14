@@ -19,6 +19,7 @@ build/
 backend/uploads/
 backend/results/
 backend/models/
+results/
 
 # Frontend - dependencies & build
 frontend/node_modules/

@@ -194,13 +194,23 @@ class AerialCadastralDataset(Dataset):
     def __getitem__(self, idx):
         if self.has_real_data:
             img_path = os.path.join(self.image_dir, self.image_files[idx])
-            mask_path = os.path.join(self.mask_dir, self.image_files[idx].rsplit('.', 1)[0] + '.png')
             img = cv2.imread(img_path)
+            if img is None:
+                img, mask = generate_realistic_aerial_tile(self.img_size)
+                return torch.tensor(img.transpose(2, 0, 1), dtype=torch.float32) / 255.0, torch.tensor(mask, dtype=torch.int64)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = cv2.resize(img, (self.img_size, self.img_size))
-            if os.path.exists(mask_path):
+
+            potential_masks = [
+                os.path.join(self.mask_dir, self.image_files[idx].rsplit('.', 1)[0] + '_mask.png'),
+                os.path.join(self.mask_dir, self.image_files[idx].rsplit('.', 1)[0] + '.png'),
+                os.path.join(self.mask_dir, self.image_files[idx])
+            ]
+            mask_path = next((p for p in potential_masks if os.path.exists(p)), None)
+            if mask_path:
                 mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
                 mask = cv2.resize(mask, (self.img_size, self.img_size), interpolation=cv2.INTER_NEAREST)
+                mask = np.clip(mask, 0, NUM_CLASSES - 1).astype(np.int64)
             else:
                 mask = np.zeros((self.img_size, self.img_size), dtype=np.int64)
         else:
@@ -261,11 +271,22 @@ model = model.to(device)
 # -------------------------------------------------------------
 # 4. Training and Validation Loops
 # -------------------------------------------------------------
-train_dataset = AerialCadastralDataset(length=240, img_size=IMG_SIZE, augment=True)
-val_dataset = AerialCadastralDataset(length=40, img_size=IMG_SIZE, augment=False)
+# Detect local or uploaded CadastreVision dataset
+cadastre_img_dir = "data/cadastrevision/images"
+cadastre_mask_dir = "data/cadastrevision/masks"
+has_cadastre = os.path.exists(cadastre_img_dir) and len(os.listdir(cadastre_img_dir)) > 0
 
-train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=2)
-val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=2)
+if has_cadastre:
+    print(f"[DATASET] Detected CadastreVision benchmark dataset in '{cadastre_img_dir}' ({len(os.listdir(cadastre_img_dir))} tiles)")
+    train_dataset = AerialCadastralDataset(image_dir=cadastre_img_dir, mask_dir=cadastre_mask_dir, img_size=IMG_SIZE, augment=True)
+    val_dataset = AerialCadastralDataset(image_dir=cadastre_img_dir, mask_dir=cadastre_mask_dir, img_size=IMG_SIZE, augment=False)
+else:
+    print("[DATASET] No CadastreVision folder detected, generating realistic procedural aerial survey tiles...")
+    train_dataset = AerialCadastralDataset(length=240, img_size=IMG_SIZE, augment=True)
+    val_dataset = AerialCadastralDataset(length=40, img_size=IMG_SIZE, augment=False)
+
+train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=0)
+val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=0)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)

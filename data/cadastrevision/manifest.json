@@ -1,0 +1,171 @@
+{
+  "dataset_name": "Synthetic_Development_Fixture",
+  "is_synthetic": true,
+  "total_patches": 18,
+  "patch_size": 512,
+  "overlap_ratio": 0.15,
+  "samples": [
+    {
+      "sample_id": "scene_north_sector_p_0000",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0000.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0000_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 8177
+    },
+    {
+      "sample_id": "scene_north_sector_p_0001",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0001.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0001_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 8717
+    },
+    {
+      "sample_id": "scene_north_sector_p_0002",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0002.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0002_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 5927
+    },
+    {
+      "sample_id": "scene_north_sector_p_0003",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0003.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0003_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 8717
+    },
+    {
+      "sample_id": "scene_north_sector_p_0004",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0004.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0004_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 9257
+    },
+    {
+      "sample_id": "scene_north_sector_p_0005",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0005.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0005_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 6197
+    },
+    {
+      "sample_id": "scene_north_sector_p_0006",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0006.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0006_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 5927
+    },
+    {
+      "sample_id": "scene_north_sector_p_0007",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0007.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0007_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 6197
+    },
+    {
+      "sample_id": "scene_north_sector_p_0008",
+      "scene_id": "scene_north_sector",
+      "image_path": "data/cadastrevision\\images\\scene_north_sector_p_0008.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_north_sector_p_0008_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 3882
+    },
+    {
+      "sample_id": "scene_south_sector_p_0000",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0000.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0000_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 8177
+    },
+    {
+      "sample_id": "scene_south_sector_p_0001",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0001.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0001_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 8717
+    },
+    {
+      "sample_id": "scene_south_sector_p_0002",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0002.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0002_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 5927
+    },
+    {
+      "sample_id": "scene_south_sector_p_0003",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0003.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0003_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 8717
+    },
+    {
+      "sample_id": "scene_south_sector_p_0004",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0004.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0004_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 9257
+    },
+    {
+      "sample_id": "scene_south_sector_p_0005",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0005.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0005_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 6197
+    },
+    {
+      "sample_id": "scene_south_sector_p_0006",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0006.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0006_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 5927
+    },
+    {
+      "sample_id": "scene_south_sector_p_0007",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0007.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0007_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 6197
+    },
+    {
+      "sample_id": "scene_south_sector_p_0008",
+      "scene_id": "scene_south_sector",
+      "image_path": "data/cadastrevision\\images\\scene_south_sector_p_0008.png",
+      "mask_path": "data/cadastrevision\\masks\\scene_south_sector_p_0008_mask.png",
+      "width": 512,
+      "height": 512,
+      "boundary_pixels": 3882
+    }
+  ]
+}
