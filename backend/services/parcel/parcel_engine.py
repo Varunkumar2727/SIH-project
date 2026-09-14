@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 import numpy as np
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.validation import make_valid
+from shapely.ops import unary_union
 
 class ParcelEngine:
     """
@@ -12,7 +13,7 @@ class ParcelEngine:
     and parcel property extraction.
     """
 
-    MIN_PARCEL_AREA_PX = 200.0
+    MIN_PARCEL_AREA_PX = 150.0
 
     @staticmethod
     def generate_parcel_id(coords: List[List[float]], prefix: str = "AI-P") -> str:
@@ -34,13 +35,27 @@ class ParcelEngine:
     ) -> List[Dict[str, Any]]:
         """
         Derives proposed parcels from structural cues (buildings, roads, boundaries),
-        ensuring topological validity and clean geometric boundaries.
+        ensuring topological validity, road-corridor exclusion, and clean geometric boundaries.
         """
         features = detection_results.get("features", {})
         buildings = features.get("buildings", [])
         roads = features.get("roads", [])
         
-        # Build spatial buffers around building clusters separated by roads
+        # Build unified road corridor to prevent parcels from overlapping street infrastructure
+        road_polys = []
+        for r in roads:
+            r_coords = r.get("polygon", [])
+            if len(r_coords) >= 3:
+                try:
+                    rp = Polygon(r_coords)
+                    if not rp.is_valid:
+                        rp = make_valid(rp)
+                    if not rp.is_empty and rp.area > 30:
+                        road_polys.append(rp)
+                except Exception:
+                    pass
+        road_corridor = unary_union(road_polys) if road_polys else None
+
         proposed_parcels = []
         for idx, bldg in enumerate(buildings):
             b_coords = bldg.get("polygon", [])
@@ -54,10 +69,30 @@ class ParcelEngine:
                     continue
 
             # Synthesize realistic compound parcel lot by buffering building envelope
-            curtilage_buffer = b_poly.buffer(25.0, join_style=2) # mitred/flat rectangular buffer
-            curtilage_buffer = curtilage_buffer.simplify(1.5)
-            
-            if curtilage_buffer.is_empty or curtilage_buffer.area < cls.MIN_PARCEL_AREA_PX:
+            # Mitred/flat rectangular buffer with snapping
+            buffer_distance = max(12.0, min(28.0, np.sqrt(b_poly.area) * 0.35))
+            curtilage_buffer = b_poly.buffer(buffer_distance, join_style=2)
+            curtilage_buffer = curtilage_buffer.simplify(1.0)
+
+            # Exclude road corridors so parcel lines respect street frontages
+            if road_corridor is not None and not road_corridor.is_empty:
+                try:
+                    curtilage_buffer = curtilage_buffer.difference(road_corridor)
+                except Exception:
+                    pass
+
+            if curtilage_buffer.is_empty:
+                continue
+
+            # If difference generated a MultiPolygon, pick the section containing the building
+            if isinstance(curtilage_buffer, MultiPolygon):
+                valid_parts = [p for p in curtilage_buffer.geoms if p.area >= cls.MIN_PARCEL_AREA_PX]
+                if not valid_parts:
+                    continue
+                containing = [p for p in valid_parts if p.intersects(b_poly)]
+                curtilage_buffer = containing[0] if containing else max(valid_parts, key=lambda p: p.area)
+
+            if curtilage_buffer.area < cls.MIN_PARCEL_AREA_PX:
                 continue
 
             p_coords = [[round(p[0], 2), round(p[1], 2)] for p in curtilage_buffer.exterior.coords]
@@ -70,15 +105,18 @@ class ParcelEngine:
 
             parcel_obj = {
                 "id": parcel_id,
+                "parcel_id": parcel_id,
                 "layer_type": "AI_PROPOSED",
                 "area_px": round(area_px, 2),
+                "formatted_area": f"{round(area_px, 1)} px²",
                 "perimeter_px": round(perim_px, 2),
                 "compactness": round(float(compactness), 4),
                 "polygon": p_coords,
                 "bbox": [float(b) for b in curtilage_buffer.bounds],
                 "confidence": bldg.get("confidence", 0.85),
                 "source": "AI_INFERENCE_DELINEATION",
-                "status": "PROPOSED"
+                "status": "requires_verification",
+                "associated_building": bldg.get("id", f"bld_{idx+1}")
             }
 
             # Map to real-world coordinates if GeoTIFF transform is available

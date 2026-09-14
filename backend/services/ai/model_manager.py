@@ -132,6 +132,34 @@ class ModelManager:
         """
         h, w, c = tile.shape
         num_classes = len(self.CLASSES)
+
+        # 1. Check if trained ONNX model weights exist (e.g. trained via Google Colab)
+        onnx_model_path = os.path.join(self.models_dir, "geocadastral_model.onnx")
+        if os.path.exists(onnx_model_path):
+            try:
+                if "onnx_session" not in self.loaded_sessions:
+                    import onnxruntime as ort
+                    sess_opts = ort.SessionOptions()
+                    sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+                    self.loaded_sessions["onnx_session"] = ort.InferenceSession(
+                        onnx_model_path, sess_opts, providers=self.get_providers()
+                    )
+                session = self.loaded_sessions["onnx_session"]
+                input_tensor = np.transpose(tile.astype(np.float32) / 255.0, (2, 0, 1))
+                input_tensor = np.expand_dims(input_tensor, axis=0)
+                input_name = session.get_inputs()[0].name
+                outputs = session.run(None, {input_name: input_tensor})
+                raw_out = outputs[0][0]  # shape (C, H, W)
+                probs = np.transpose(raw_out, (1, 2, 0))  # shape (H, W, C)
+                if np.min(probs) < 0 or np.max(probs) > 1.05:
+                    exp_p = np.exp(probs - np.max(probs, axis=-1, keepdims=True))
+                    probs = exp_p / np.sum(exp_p, axis=-1, keepdims=True)
+                if probs.shape[-1] == num_classes:
+                    return probs.astype(np.float32)
+            except Exception as e:
+                logger.warning(f"ONNX inference failed, falling back to algorithmic extraction: {e}")
+
+        # 2. Algorithmic radiometric & spectral feature extraction fallback
         probs = np.zeros((h, w, num_classes), dtype=np.float32)
 
         # Normalize tile

@@ -16,19 +16,19 @@ class FeatureDetector:
     """
 
     CLASS_THRESHOLDS = {
-        "building": 0.45,
-        "road": 0.40,
-        "vegetation": 0.50,
-        "water": 0.55,
-        "bare_land": 0.40
+        "building": 0.24,
+        "road": 0.22,
+        "vegetation": 0.22,
+        "water": 0.25,
+        "bare_land": 0.22
     }
 
     MIN_AREA_PX = {
-        "building": 60,
-        "road": 100,
-        "vegetation": 120,
-        "water": 150,
-        "bare_land": 150
+        "building": 35,
+        "road": 50,
+        "vegetation": 50,
+        "water": 60,
+        "bare_land": 50
     }
 
     def __init__(self, model_manager: Optional[ModelManager] = None):
@@ -91,19 +91,28 @@ class FeatureDetector:
             threshold = self.CLASS_THRESHOLDS.get(class_name, 0.5)
             binary_mask = (class_prob >= threshold).astype(np.uint8) * 255
 
-            # Morphological smoothing to remove isolated noise and close micro-holes
+            # Morphological smoothing: close micro-holes and seal structures without eroding small footprints
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-            cleaned_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel)
-            cleaned_mask = cv2.morphologyEx(cleaned_mask, cv2.MORPH_CLOSE, kernel)
+            cleaned_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel)
 
             # Find contours
             contours, hierarchy = cv2.findContours(
                 cleaned_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
 
+            # Class-specific epsilon: tighter for buildings/roads to preserve rectilinear cadastral geometry
+            epsilon_factors = {
+                "building": 0.005,   # Sharp 90-degree corners and clean edges
+                "road": 0.008,       # Straight road corridors
+                "vegetation": 0.012, # Organic tree canopy contours
+                "water": 0.012,      # Smooth water boundaries
+                "bare_land": 0.015   # Natural open earth contours
+            }
+            eps_factor = epsilon_factors.get(class_name, 0.010)
+
             for cnt_idx, cnt in enumerate(contours):
                 # Polygon approximation
-                epsilon = 0.015 * cv2.arcLength(cnt, True)
+                epsilon = eps_factor * cv2.arcLength(cnt, True)
                 approx = cv2.approxPolyDP(cnt, epsilon, True)
                 
                 if len(approx) < 3:
@@ -155,6 +164,9 @@ class FeatureDetector:
                 features[key_name].append(feature_obj)
                 total_detected_features += 1
 
+        # Open land alias for frontend layer toggle
+        features["open_land"] = features["bare_land"]
+
         stats = {
             "total_features": total_detected_features,
             "buildings_count": len(features["buildings"]),
@@ -162,6 +174,10 @@ class FeatureDetector:
             "vegetation_count": len(features["vegetation"]),
             "water_count": len(features["water"]),
             "bare_land_count": len(features["bare_land"]),
+            "buildings_detected": len(features["buildings"]),
+            "road_areas": len(features["roads"]),
+            "vegetation_areas": len(features["vegetation"]),
+            "open_land_areas": len(features["open_land"]),
             "model_version": self.manager.get_model_metadata(self.manager.active_model_id).get("version", "1.0.0"),
             "inference_device": self.manager.device
         }
