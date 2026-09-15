@@ -16,19 +16,19 @@ class FeatureDetector:
     """
 
     CLASS_THRESHOLDS = {
-        "building": 0.24,
-        "road": 0.22,
-        "vegetation": 0.22,
-        "water": 0.25,
-        "bare_land": 0.22
+        "building": 0.28,
+        "road": 0.25,
+        "vegetation": 0.25,
+        "water": 0.28,
+        "bare_land": 0.25
     }
 
     MIN_AREA_PX = {
-        "building": 35,
-        "road": 50,
-        "vegetation": 50,
-        "water": 60,
-        "bare_land": 50
+        "building": 75,
+        "road": 90,
+        "vegetation": 75,
+        "water": 90,
+        "bare_land": 75
     }
 
     def __init__(self, model_manager: Optional[ModelManager] = None):
@@ -70,13 +70,14 @@ class FeatureDetector:
         }
 
         # Class indices: 0: background, 1: building, 2: road, 3: vegetation, 4: water, 5: bare_land
-        class_map = {
-            1: ("building", "buildings"),
-            2: ("road", "roads"),
-            3: ("vegetation", "vegetation"),
-            4: ("water", "water"),
-            5: ("bare_land", "bare_land")
-        }
+        # Priority order: Hard structures & infrastructure first, followed by natural terrain
+        ordered_classes = [
+            (1, "building", "buildings"),
+            (2, "road", "roads"),
+            (4, "water", "water"),
+            (3, "vegetation", "vegetation"),
+            (5, "bare_land", "bare_land")
+        ]
 
         transform = None
         crs = None
@@ -86,14 +87,28 @@ class FeatureDetector:
 
         total_detected_features = 0
 
-        for class_idx, (class_name, key_name) in class_map.items():
-            class_prob = probs[:, :, class_idx]
-            threshold = self.CLASS_THRESHOLDS.get(class_name, 0.5)
-            binary_mask = (class_prob >= threshold).astype(np.uint8) * 255
+        # Multi-class competitive argmax: each pixel is allocated to its dominant class
+        pred_classes = np.argmax(probs, axis=-1)
+        winner_prob = np.max(probs, axis=-1)
+        allocated_mask = np.zeros((h, w), dtype=bool)
 
-            # Morphological smoothing: close micro-holes and seal structures without eroding small footprints
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-            cleaned_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel)
+        for class_idx, class_name, key_name in ordered_classes:
+            class_prob = probs[:, :, class_idx]
+            threshold = self.CLASS_THRESHOLDS.get(class_name, 0.25)
+            # Mutual exclusion: pixel must be dominant winner, exceed threshold, and not overlap existing higher-priority layers
+            class_mask = (pred_classes == class_idx) & (winner_prob >= threshold) & (~allocated_mask)
+            binary_mask = class_mask.astype(np.uint8) * 255
+
+            # Morphological noise suppression:
+            # 1. Opening removes isolated pixel speckles
+            kernel_open = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+            cleaned_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel_open)
+            # 2. Closing bridges hairline cracks and consolidates footprints
+            kernel_close = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+            cleaned_mask = cv2.morphologyEx(cleaned_mask, cv2.MORPH_CLOSE, kernel_close)
+
+            # Mark allocated pixels to guarantee zero overlap across layers
+            allocated_mask |= (cleaned_mask > 0)
 
             # Find contours
             contours, hierarchy = cv2.findContours(
@@ -124,6 +139,20 @@ class FeatureDetector:
                     raw_polygon = make_valid(raw_polygon)
                     if not raw_polygon.is_valid or raw_polygon.is_empty:
                         continue
+
+                # Orthogonal cadastral snapping for buildings: convert wavy contours to sharp 90-degree surveyor footprints
+                if class_name == "building" and len(pts) >= 4:
+                    try:
+                        rect = cv2.minAreaRect(pts.astype(np.float32))
+                        box = cv2.boxPoints(rect)
+                        box_poly = Polygon(box)
+                        if box_poly.is_valid and box_poly.area > 0 and raw_polygon.area > 0:
+                            iou = raw_polygon.intersection(box_poly).area / (raw_polygon.union(box_poly).area + 1e-6)
+                            if iou >= 0.65:
+                                pts = np.array([[round(float(p[0]), 1), round(float(p[1]), 1)] for p in box])
+                                raw_polygon = box_poly
+                    except Exception:
+                        pass
 
                 area_px = float(raw_polygon.area)
                 if area_px < self.MIN_AREA_PX.get(class_name, 50):

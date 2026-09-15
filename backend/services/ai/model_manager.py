@@ -135,7 +135,19 @@ class ModelManager:
 
         # 1. Check if trained ONNX model weights exist (e.g. trained via Google Colab)
         onnx_model_path = os.path.join(self.models_dir, "geocadastral_model.onnx")
-        if os.path.exists(onnx_model_path):
+        weights_file = os.path.join(self.models_dir, "geocadastral_ai_weights.json")
+        is_synthetic_fixture = False
+        if os.path.exists(weights_file):
+            try:
+                with open(weights_file, "r") as f:
+                    wdata = json.load(f)
+                    if wdata.get("dataset_info", {}).get("dataset_name") == "Synthetic_Development_Fixture":
+                        is_synthetic_fixture = True
+            except Exception:
+                pass
+
+        # If a real trained ONNX model exists (not the 18-patch synthetic test fixture), run neural inference
+        if os.path.exists(onnx_model_path) and not is_synthetic_fixture:
             try:
                 if "onnx_session" not in self.loaded_sessions:
                     import onnxruntime as ort
@@ -159,7 +171,7 @@ class ModelManager:
             except Exception as e:
                 logger.warning(f"ONNX inference failed, falling back to algorithmic extraction: {e}")
 
-        # 2. Algorithmic radiometric & spectral feature extraction fallback
+        # 2. Algorithmic radiometric & spectral feature extraction
         probs = np.zeros((h, w, num_classes), dtype=np.float32)
 
         # Normalize tile
@@ -172,34 +184,34 @@ class ModelManager:
 
         # Excess Green Index (ExG) for vegetation
         exg = 2.0 * g - r - b
-        veg_mask = exg > 0.08
+        veg_mask = exg > 0.07
 
         # Normalized Difference Water Index variant using RGB
-        # Water typically has higher Blue/Green than Red
         water_score = (b - r) / (b + r + 1e-6)
-        water_mask = (water_score > 0.15) & (b > 0.25) & ~veg_mask
+        water_mask = (water_score > 0.16) & (b > 0.25) & ~veg_mask
 
-        # Brightness / intensity
+        # Brightness / intensity & spectral neutrality
         intensity = 0.299 * r + 0.587 * g + 0.114 * b
-
-        # Road cue: elongated neutral-gray regions
         neutrality = 1.0 - (np.maximum(np.maximum(np.abs(r - g), np.abs(g - b)), np.abs(b - r)))
-        road_mask = (neutrality > 0.75) & (intensity > 0.25) & (intensity < 0.65) & ~veg_mask & ~water_mask
 
-        # Building cue: higher contrast, rectangular corners, distinct intensity
-        building_mask = (
-            (intensity > 0.45) | (intensity < 0.22)
-        ) & ~veg_mask & ~water_mask & ~road_mask
+        # Road cue: elongated neutral-gray corridors
+        road_mask = (neutrality > 0.76) & (intensity > 0.20) & (intensity < 0.62) & ~veg_mask & ~water_mask
 
-        # Bare land: earth tones
-        bare_mask = (r > b) & (intensity > 0.3) & ~veg_mask & ~water_mask & ~building_mask & ~road_mask
+        # Building cue: terracotta roofs, slate roofs, and high-contrast concrete roofs
+        terracotta = (r > 0.45) & (r > g * 1.12) & (r > b * 1.25)
+        slate = (b > 0.30) & (b > r * 1.10) & (intensity < 0.65)
+        concrete = (intensity > 0.62) & (neutrality > 0.68)
+        building_mask = (terracotta | slate | concrete | ((intensity > 0.55) & (neutrality > 0.65))) & ~veg_mask & ~water_mask & ~road_mask
+
+        # Bare land: natural soil / earth tones
+        bare_mask = (r > b * 1.05) & (intensity > 0.25) & ~veg_mask & ~water_mask & ~building_mask & ~road_mask
 
         # Assign calibrated class probabilities
-        probs[:, :, 1] = np.where(building_mask, 0.85, 0.03)
-        probs[:, :, 2] = np.where(road_mask, 0.82, 0.04)
+        probs[:, :, 1] = np.where(building_mask, 0.88, 0.02)
+        probs[:, :, 2] = np.where(road_mask, 0.85, 0.03)
         probs[:, :, 3] = np.where(veg_mask, 0.90, 0.02)
         probs[:, :, 4] = np.where(water_mask, 0.92, 0.01)
-        probs[:, :, 5] = np.where(bare_mask, 0.78, 0.05)
+        probs[:, :, 5] = np.where(bare_mask, 0.80, 0.04)
 
         # Background class is inverse of maximum class activation
         max_foreground = np.max(probs[:, :, 1:], axis=2)

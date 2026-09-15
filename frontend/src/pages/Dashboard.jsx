@@ -8,13 +8,15 @@ import GcpControl from '../components/GcpControl';
 import MapViewer from '../components/MapViewer';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import GeoJsonExport from '../components/GeoJsonExport';
-import { Map, SlidersHorizontal, CheckCircle2, ShieldAlert } from 'lucide-react';
+import GeminiAuditorModal from '../components/GeminiAuditorModal';
+import { Map, SlidersHorizontal, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react';
 
 export default function Dashboard() {
   const [imageMeta, setImageMeta] = useState(null);
   const [results, setResults] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('map');
+  const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
   
   // Measurement States
   const [measurementMode, setMeasurementMode] = useState('pixels');
@@ -225,6 +227,29 @@ export default function Dashboard() {
               >
                 <SlidersHorizontal size={15} /> Before / After Split Comparison
               </button>
+
+              <button
+                onClick={() => setIsGeminiModalOpen(true)}
+                disabled={!imageMeta}
+                style={{
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(139, 92, 246, 0.25))',
+                  color: '#38BDF8',
+                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: imageMeta ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  opacity: imageMeta ? 1 : 0.45,
+                  boxShadow: '0 2px 10px rgba(6, 182, 212, 0.2)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Sparkles size={15} color="#38BDF8" /> Gemini AI Audit
+              </button>
             </div>
 
             {results && (
@@ -341,9 +366,16 @@ export default function Dashboard() {
               <strong>SIH Prototype Disclaimer:</strong> This prototype generates AI-assisted proposed land-feature and parcel boundaries from imagery. Outputs are not legally authoritative cadastral records and require verification by an authorized surveyor/government authority.
             </span>
           </div>
-
         </div>
       </div>
+
+      {/* Gemini Multimodal Cadastral Auditor Modal */}
+      <GeminiAuditorModal
+        isOpen={isGeminiModalOpen}
+        onClose={() => setIsGeminiModalOpen(false)}
+        imageMeta={imageMeta}
+        results={results}
+      />
     </div>
   );
 }

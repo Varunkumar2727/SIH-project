@@ -142,6 +142,10 @@ async def analyze_image_endpoint(image_id: str):
     except Exception as e:
         parcels = []
 
+    w = meta.get("width") or detection_results.get("dimensions", {}).get("width") or detection_results.get("image_dimensions", {}).get("width") or 800
+    h = meta.get("height") or detection_results.get("dimensions", {}).get("height") or detection_results.get("image_dimensions", {}).get("height") or 600
+    detection_results["dimensions"] = {"width": w, "height": h}
+    detection_results["image_dimensions"] = {"width": w, "height": h}
     detection_results["image_id"] = image_id
     detection_results["detection_mode"] = "AI Deep Learning (ONNX Runtime)"
     detection_results["parcels"] = parcels
@@ -599,3 +603,54 @@ async def get_result_image(filename: str):
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Overlay image not found.")
     return FileResponse(file_path)
+
+
+class GeminiConfigRequest(BaseModel):
+    api_key: str
+
+
+@router.get("/gemini/status")
+async def gemini_status():
+    from services.ai.gemini_auditor import GeminiCadastralAuditor
+    configured = GeminiCadastralAuditor.is_configured()
+    return {
+        "configured": configured,
+        "model": "gemini-1.5-flash",
+        "description": "Google Gemini Multimodal Vision Cadastral Auditor"
+    }
+
+
+@router.post("/gemini/config")
+async def gemini_config(req: GeminiConfigRequest):
+    from services.ai.gemini_auditor import GeminiCadastralAuditor
+    success = GeminiCadastralAuditor.set_api_key(req.api_key)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to save Gemini API key.")
+    return {"status": "success", "configured": True, "message": "Gemini API key configured successfully."}
+
+
+@router.post("/gemini/audit/{image_id}")
+async def gemini_audit(image_id: str):
+    from services.ai.gemini_auditor import GeminiCadastralAuditor
+    matching_files = [f for f in os.listdir(UPLOAD_DIR) if f.startswith(image_id) and not f.endswith("_meta.json")]
+    if not matching_files:
+        raise HTTPException(status_code=404, detail=f"Image ID '{image_id}' not found.")
+
+    image_filename = matching_files[0]
+    image_path = os.path.join(UPLOAD_DIR, image_filename)
+
+    meta_path = os.path.join(UPLOAD_DIR, f"{image_id}_meta.json")
+    meta = {}
+    if os.path.exists(meta_path):
+        with open(meta_path, "r") as f:
+            meta = json.load(f)
+
+    audit_results = GeminiCadastralAuditor.audit_aerial_image(image_path, meta)
+
+    # Cache audit results
+    audit_file = os.path.join(RESULTS_DIR, f"{image_id}_gemini_audit.json")
+    with open(audit_file, "w") as f:
+        json.dump(audit_results, f, indent=2)
+
+    return audit_results
+

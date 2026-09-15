@@ -29,8 +29,8 @@ export default function MapViewer({
   const [inspectedCoord, setInspectedCoord] = useState(null);
   const [hoverCoord, setHoverCoord] = useState(null);
 
-  const width = results?.dimensions?.width || imageMeta?.width || 800;
-  const height = results?.dimensions?.height || imageMeta?.height || 600;
+  const width = results?.dimensions?.width || results?.image_dimensions?.width || imageMeta?.width || 800;
+  const height = results?.dimensions?.height || results?.image_dimensions?.height || imageMeta?.height || 600;
 
   // Initialize Leaflet Map
   useEffect(() => {

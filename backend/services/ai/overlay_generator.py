@@ -25,7 +25,8 @@ def generate_ai_overlay(
     features = detection_results.get("features", {})
 
     # 1. Bare Land / Open Land: Amber Yellow
-    for land in features.get("bare_land", []) + features.get("open_land", []):
+    open_land_list = features.get("open_land") or features.get("bare_land", [])
+    for land in open_land_list:
         pts = np.array(land.get("polygon", []), dtype=np.int32)
         if len(pts) >= 3:
             cv2.fillPoly(mask_layer, [pts], (0, 215, 255))

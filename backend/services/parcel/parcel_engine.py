@@ -56,7 +56,8 @@ class ParcelEngine:
                     pass
         road_corridor = unary_union(road_polys) if road_polys else None
 
-        proposed_parcels = []
+        # 1. Generate candidate curtilage buffers for each building
+        raw_parcel_candidates = []
         for idx, bldg in enumerate(buildings):
             b_coords = bldg.get("polygon", [])
             if len(b_coords) < 3:
@@ -65,8 +66,8 @@ class ParcelEngine:
             b_poly = Polygon(b_coords)
             if not b_poly.is_valid:
                 b_poly = make_valid(b_poly)
-                if b_poly.is_empty:
-                    continue
+            if b_poly.is_empty:
+                continue
 
             # Synthesize realistic compound parcel lot by buffering building envelope
             # Mitred/flat rectangular buffer with snapping
@@ -95,6 +96,53 @@ class ParcelEngine:
             if curtilage_buffer.area < cls.MIN_PARCEL_AREA_PX:
                 continue
 
+            raw_parcel_candidates.append((bldg, curtilage_buffer, idx))
+
+        # 2. Planar Partition: Prevent overlapping parcel boundaries
+        # Deduplicate heavily overlapping compound lots (>40% overlap) and clip boundary lines
+        proposed_parcels = []
+        claimed_land = None
+
+        # Sort candidate parcels by area descending so primary parcels establish clean boundaries first
+        raw_parcel_candidates.sort(key=lambda item: item[1].area, reverse=True)
+
+        for bldg, curtilage_buffer, orig_idx in raw_parcel_candidates:
+            if claimed_land is not None and curtilage_buffer.intersects(claimed_land):
+                try:
+                    intersection = curtilage_buffer.intersection(claimed_land)
+                    # If significant overlap with existing plot (>35%), it's part of the same parcel / compound
+                    if intersection.area / (curtilage_buffer.area + 1e-6) > 0.35:
+                        continue
+
+                    # Otherwise, cleanly partition at the property line without overlap
+                    curtilage_buffer = curtilage_buffer.difference(claimed_land)
+                    if curtilage_buffer.is_empty:
+                        continue
+                    if isinstance(curtilage_buffer, MultiPolygon):
+                        valid_sub = [p for p in curtilage_buffer.geoms if p.area >= cls.MIN_PARCEL_AREA_PX]
+                        if not valid_sub:
+                            continue
+                        curtilage_buffer = max(valid_sub, key=lambda p: p.area)
+                except Exception:
+                    pass
+
+            if curtilage_buffer.is_empty or curtilage_buffer.area < cls.MIN_PARCEL_AREA_PX:
+                continue
+
+            if not curtilage_buffer.is_valid:
+                curtilage_buffer = make_valid(curtilage_buffer)
+                if isinstance(curtilage_buffer, MultiPolygon):
+                    valid_sub = [p for p in curtilage_buffer.geoms if p.area >= cls.MIN_PARCEL_AREA_PX]
+                    if not valid_sub:
+                        continue
+                    curtilage_buffer = max(valid_sub, key=lambda p: p.area)
+
+            # Update planar partition claimed land
+            try:
+                claimed_land = unary_union([claimed_land, curtilage_buffer]) if claimed_land is not None else curtilage_buffer
+            except Exception:
+                pass
+
             p_coords = [[round(p[0], 2), round(p[1], 2)] for p in curtilage_buffer.exterior.coords]
             parcel_id = cls.generate_parcel_id(p_coords)
 
@@ -116,7 +164,7 @@ class ParcelEngine:
                 "confidence": bldg.get("confidence", 0.85),
                 "source": "AI_INFERENCE_DELINEATION",
                 "status": "requires_verification",
-                "associated_building": bldg.get("id", f"bld_{idx+1}")
+                "associated_building": bldg.get("id", f"bld_{orig_idx+1}")
             }
 
             # Map to real-world coordinates if GeoTIFF transform is available

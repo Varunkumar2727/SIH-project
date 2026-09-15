@@ -77,6 +77,7 @@ export default function ImageUpload({ onUploadSuccess, onAnalysisComplete, isPro
     try {
       const response = await fetch(`/${sampleFileName}`);
       if (!response.ok) throw new Error('Could not fetch sample image');
+      const blob = await response.blob();
       const mimeType = sampleFileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
       const file = new File([blob], sampleFileName, { type: mimeType });
       
