@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cpu, Database, CheckCircle, RefreshCw, Award, ArrowRight } from 'lucide-react';
+import { Cpu, Database, RefreshCw, Award } from 'lucide-react';
 
 export default function AiStudioModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('datasets');
@@ -23,9 +23,9 @@ export default function AiStudioModal({ isOpen, onClose }) {
     setTrainStatus('Initializing transfer learning on RTX 3050 GPU (Batch Size: 1, 512x512 tiles)...');
     try {
       const res = await fetch('/api/train?epochs=3', { method: 'POST' });
-      const data = await res.json();
+      await res.json();
       setTrainStatus(`Fine-tuning finished successfully! Evaluated on Indian validation split with real metrics.`);
-    } catch (e) {
+    } catch {
       setTrainStatus('Training executed via worker architecture.');
     } finally {
       setIsTraining(false);

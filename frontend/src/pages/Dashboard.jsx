@@ -8,7 +8,7 @@ import GcpControl from '../components/GcpControl';
 import MapViewer from '../components/MapViewer';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import GeoJsonExport from '../components/GeoJsonExport';
-import { Map, SlidersHorizontal, CheckCircle2, ShieldAlert, Cpu } from 'lucide-react';
+import { Map, SlidersHorizontal, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 export default function Dashboard() {
   const [imageMeta, setImageMeta] = useState(null);

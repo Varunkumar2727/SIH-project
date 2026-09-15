@@ -1,11 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SlidersHorizontal, Image as ImageIcon, Sparkles, Layers } from 'lucide-react';
+import { SlidersHorizontal, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { getImageUrl } from '../services/api';
 
-export default function BeforeAfterSlider({ rawImageUrl, overlayImageUrl, width = 800, height = 600 }) {
+export default function BeforeAfterSlider({ rawImageUrl, overlayImageUrl }) {
   const [sliderPos, setSliderPos] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const handleMove = (clientX) => {
     if (!containerRef.current) return;
@@ -132,7 +146,7 @@ export default function BeforeAfterSlider({ rawImageUrl, overlayImageUrl, width 
               position: 'absolute',
               top: 0,
               left: 0,
-              width: containerRef.current ? containerRef.current.clientWidth : '100%',
+              width: containerWidth ? `${containerWidth}px` : '100%',
               height: '100%',
               objectFit: 'contain'
             }}

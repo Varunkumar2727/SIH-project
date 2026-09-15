@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Key, Shield, HardDrive, BarChart3, Copy, Check } from 'lucide-react';
+import { Key, Copy, Check } from 'lucide-react';
 
 export default function SaasApiModal({ isOpen, onClose }) {
   const [createdKey, setCreatedKey] = useState(null);

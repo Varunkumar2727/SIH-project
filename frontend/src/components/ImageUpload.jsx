@@ -5,7 +5,7 @@ import { uploadImage, analyzeImage, trainModel } from '../services/api';
 export default function ImageUpload({ onUploadSuccess, onAnalysisComplete, isProcessing, setIsProcessing }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [uploadedImageMeta, setUploadedImageMeta] = useState(null);
+  const [, setUploadedImageMeta] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
@@ -84,7 +84,7 @@ export default function ImageUpload({ onUploadSuccess, onAnalysisComplete, isPro
       setPreviewUrl(URL.createObjectURL(file));
       
       await handleUploadAndAnalyze(file);
-    } catch (err) {
+    } catch {
       setErrorMsg('Failed to load sample image. Please upload a local image file.');
       setIsProcessing(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, AlertTriangle, ShieldCheck, ClipboardList, MapPin } from 'lucide-react';
+import { CheckCircle2, XCircle, ClipboardList, MapPin } from 'lucide-react';
 
 export default function ReviewQueueModal({ isOpen, onClose }) {
   const [cases, setCases] = useState([]);
@@ -29,17 +29,16 @@ export default function ReviewQueueModal({ isOpen, onClose }) {
   const handleDecision = async (decision) => {
     if (!selectedCase) return;
     try {
-      const res = await fetch(`/api/v1/reviews/${selectedCase.case_id}/decision`, {
+      await fetch(`/api/v1/reviews/${selectedCase.case_id}/decision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': 'DEMO' },
         body: JSON.stringify({ decision, notes, officer_name: officerName })
       });
-      const data = await res.json();
       setMessage(`Decision recorded: ${decision}`);
       fetchCases();
       setSelectedCase(null);
       setNotes('');
-    } catch (e) {
+    } catch {
       setMessage('Error recording decision.');
     }
   };

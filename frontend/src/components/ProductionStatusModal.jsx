@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, HardDrive, Cpu, Database, CheckCircle2, Lock, FileText } from 'lucide-react';
+import { ShieldCheck, Cpu, Database, Lock, FileText } from 'lucide-react';
 
 export default function ProductionStatusModal({ isOpen, onClose }) {
   const [backupStatus, setBackupStatus] = useState(null);

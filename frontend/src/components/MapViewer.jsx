@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getImageUrl } from '../services/api';
-import { Crosshair, MapPin } from 'lucide-react';
+import { Crosshair } from 'lucide-react';
 
 export default function MapViewer({ 
   rawImageUrl, 

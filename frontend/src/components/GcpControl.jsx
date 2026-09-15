@@ -8,10 +8,7 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   RotateCcw,
-  Check,
-  Compass,
-  Layers,
-  Info
+  Check
 } from 'lucide-react';
 import axios from 'axios';
 
